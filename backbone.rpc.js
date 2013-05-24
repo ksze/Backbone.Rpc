@@ -1,10 +1,10 @@
-/*! Backbone.Rpc - v0.1.1
+/*! Backbone.Rpc - v0.1.2b
 ------------------------------
-Build @ 2012-11-15
+Build @ 2013-05-24
 Documentation and Full License Available at:
 http://asciidisco.github.com/Backbone.Rpc/index.html
 git://github.com/asciidisco/Backbone.Rpc.git
-Copyright (c) 2012 Sebastian Golasch <public@asciidisco.com>
+Copyright (c) 2013 Kal Sze <swordangel@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -91,8 +91,6 @@ IN THE SOFTWARE.*/
 
         // TODO: Document
         exceptions: {
-            404: {code: -1, message: '404'},
-            500: {code: -2, message: '500'},
             typeMissmatch: {code: -3, message: 'Type missmatch'},
             badResponseId: {code: -4, message: 'Bad response ID'},
             noResponse: {code: -5, message: 'No response'},
@@ -103,46 +101,59 @@ IN THE SOFTWARE.*/
         },
 
         // TODO: Document
-        onSuccess: function (callback, id, data) {
+        onSuccess: function (success_callback, id, data, textStatus, jqXHR) {
             // check if callback variable is a function
-            if (_.isFunction(callback) === true) {
+            if (_.isFunction(success_callback) === true) {
                 // check if we have valid response data
-                if (data === null || data === undef) {
+                if (data === undef || data === null || data.result === undef || data.result === null) {
                     this.handleExceptions(this.exceptions.noResponse);
                     return this;
                 }
 
-                // always only one parameter has value and second is null
-                if (data !== null && id !== String(data.id)) {
+                if (id !== String(data.id)) {
                     this.handleExceptions(this.exceptions.badResponseId);
                 }
 
                 // call the callback function with the result data
-                callback.apply(this, [data.result, data.error]);
-            } else {
-                // fire an error
-                this.onError(data);
+                success_callback.apply(this, [data.result, data.error]);
             }
         },
 
         // TODO: Document
-        onError: function (callback, data) {
-            // check if we have valid response data
-            if (data === null || data === undef) {
-                this.handleExceptions(this.exceptions.noResponse);
-                return this;
-            }
+        // 'data' could be the response object or a jqXHR object
+        onError: function (callback, error, textStatus, errorThrown) {
+            if (!_.isFunction(callback)) {
+                // check if we have valid response data
+                if (error === null || error === undef) {
+                    this.handleExceptions(this.exceptions.noResponse);
+                    return this;
+                }
 
-            // check if we have an error object
-            if (null !== data.error && undef !== data.error) {
-                this.handleExceptions(data.error);
+                // check if we have an error object
+                if (null !== error && undef !== error) {
+                    this.handleExceptions(error);
+                } else {
+                    this.handleExceptions(this.exceptions.noDefError);
+                }
             } else {
-                this.handleExceptions(this.exceptions.noDefError);
+                // Check if `error` is a jqXHR object
+                if (typeof error.readyState !== 'undefined' && _.isFunction(error.promise)) {
+                    // Parse the responseText from the jqXHR object first; hopefully it's a JSON-RPC error response
+                    if (_.isString(error.responseText)) {
+                        try {
+                            error = JSON.parse(error.responseText);
+                        } catch (e) {
+                            this.handleExceptions(this.exceptions.renderError('Invalid response'));
+                            return this;
+                        }
+                    }
+                }
+                callback.call(this, error);
             }
         },
 
         // TODO: Document
-        query: function (fn, params, callback) {
+        query: function (fn, params, success_callback, error_callback) {
             var id = String((new Date()).getTime()),
                 ret = null;
             this.responseID = id;
@@ -162,20 +173,16 @@ IN THE SOFTWARE.*/
                         params  : params
                     }),
                     statusCode  : {
-                        404: _.bind(function () { this.handleExceptions(this.exceptions['404']); }, this),
-                        500: _.bind(function () { this.handleExceptions(this.exceptions['500']); }, this)
                     },
-                    success: _.bind(function (data, status, response) {
+                    success: _.bind(function (data, textStatus, jqXHR) {
                         if (data !== null && data.error !== undef) {
-                            this.onError(callback, data, status, response);
+                            this.onError(error_callback, data.error, textStatus);
                         } else {
-                            this.onSuccess(callback, id, data, status, response);
+                            this.onSuccess(success_callback, id, data, textStatus, jqXHR);
                         }
                     }, this),
-                    error: _.bind(function (jXhr, status, response) {
-                        if (jXhr.status !== 404 && jXhr.status !== 500) {
-                            this.onError(callback, jXhr, status, response);
-                        }
+                    error: _.bind(function (jqXHR, textStatus, errorThrown) {
+                        this.onError(error_callback, jqXHR, textStatus, errorThrown);
                     }, this)
                 });
             } else {
@@ -286,12 +293,12 @@ IN THE SOFTWARE.*/
                         options.success(model, result);
                     }
                 },
-                error: function (model, error) {
-                    model.trigger('error', model, error);
-                    model.trigger('error:' + method, model, error);
+                error: function (model, jsonError) {
+                    model.trigger('error', model, jsonError);
+                    model.trigger('error:' + method, model, jsonError);
                     // check for a manually success callback
                     if (options !== undef && _.isFunction(options.error)) {
-                        options.error(model, error);
+                        options.error(model, jsonError);
                     }
                 }
             };
@@ -348,7 +355,7 @@ IN THE SOFTWARE.*/
         var rpc = null,
             sync = function (method, model, options) {
                 // Default success model callback
-                var successCb = function (data, error) {
+                var successCb = function (result, error) {
                     // check if we have an error object
                     if (error !== null && error !== undef) {
                         options.error(model, error);
@@ -357,47 +364,47 @@ IN THE SOFTWARE.*/
 
                     // check if the rpc is used in a Backbone.Collection instance
                     if (model instanceof Backbone.Collection) {
-                        // check if we have valid response data
-                        if (data !== undef && data !== null) {
-                            // clone the data and tag it to track changes
-                            if (typeof data[0] === 'object') {
-                                _.each(data, function (item, key) {
+                        // check if we have valid response result
+                        if (result !== undef && result !== null) {
+                            // clone the result and tag it to track changes
+                            if (typeof result[0] === 'object') {
+                                _.each(result, function (item, key) {
                                     item._rpcId = _.uniqueId('rpc_');
-                                    data[key] = item;
+                                    result[key] = item;
                                     storage[item._rpcId] = item;
                                 });
                             } else {
-                                _.each(data, function (item, key) {
+                                _.each(result, function (item, key) {
                                     storage[key] = item;
                                 });
                             }
                         }
                     }
 
-                    // clone and tag the data to track changes if we have a Backbone.Model instance
-                    if (model instanceof Backbone.Model && data !== undef && data !== null) {
-                        data._rpcId = _.uniqueId('rpc_');
-                        storage[data._rpcId] = data;
+                    // clone and tag the result to track changes if we have a Backbone.Model instance
+                    if (model instanceof Backbone.Model && result !== undef && result !== null) {
+                        result._rpcId = _.uniqueId('rpc_');
+                        storage[result._rpcId] = result;
                     }
 
-                    // change data attr to be an empty array, if it´s null or undefined
-                    if (data === undef || data === null) {
-                        data = [];
+                    // change result attr to be an empty array, if it´s null or undefined
+                    if (result === undef || result === null) {
+                        result = [];
                     }
 
                     // invoke special return callback parser if defined
                     if (model.parsers !== undef && model.parsers[method] !== undef && _.isFunction(model.parsers[method])) {
-                        model.parsers[method].apply(model, [data]);
+                        model.parsers[method].apply(model, [result]);
                     }
 
                     // fire the 'real' backbone success callback
-                    options.success(data);
-                },
+                    options.success(result);
+                };
 
-                    // define a local error callback that will hand over the data to the backbone error handler
-                    errorCb = function (data) {
-                        options.error(model, data);
-                    };
+                // define a local error callback that will hand over the data to the backbone error handler
+                var errorCb = function (error) {
+                    options.error(model, error);
+                };
 
                 // check if we have a correct (e.g. Backbone.Rpc) model instance
                 if (model.rpc instanceof Rpc) {
