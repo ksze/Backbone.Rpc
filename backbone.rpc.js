@@ -304,8 +304,8 @@ IN THE SOFTWARE.*/
             };
 
             // sync the model
-            Backbone.sync(method, model, defOpts);
-            return this;
+            return Backbone.sync(method, model, defOpts);
+            //return this;
         },
 
         // Default exception handler

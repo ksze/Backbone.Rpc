@@ -2,11 +2,11 @@
 Plugin for using the backbone js library with json-rpc instead of the native REST implementation
 
 ## Build Status, Project Page, Annotated Source & Tests
-[![Build Status](https://secure.travis-ci.org/asciidisco/Backbone.Rpc.png?branch=master)](http://travis-ci.org/asciidisco/Backbone.Rpc)<br /><br />
-[Project Page](http://asciidisco.github.com/Backbone.Rpc/index.html)<br />
-[Docs](http://asciidisco.github.com/Backbone.Rpc/docs/backbone.rpc.html)<br />
-[Tests](http://asciidisco.github.com/Backbone.Rpc/test/index.html)<br />
-[NPM registry](http://search.npmjs.org/#/Backbone.Rpc)
+[![Build Status](https://secure.travis-ci.org/asciidisco/Backbone.Rpc.png?branch=master)](http://travis-ci.org/asciidisco/Backbone.Rpc) __NOTE: ignore this, this fork isn't set up properly with Travis CI.__<br /><br />
+[Project Page](http://ksze.github.com/Backbone.Rpc/index.html)<br />
+[Docs](http://ksze.github.com/Backbone.Rpc/docs/backbone.rpc.html)<br />
+[Tests](http://ksze.github.com/Backbone.Rpc/test/index.html)<br />
+[NPM registry](http://search.npmjs.org/#/Backbone.Rpc) __NOTE: also ignore this...__
 
 
 ## Introduction
@@ -26,10 +26,12 @@ vanilla javascript.
 The plugin itself has three dependencies, underscore.js, jQuery and backbone.js
 
 You can directly download the
-[Development Version](https://raw.github.com/asciidisco/Backbone.Rpc/master/backbone.rpc.js)
+[Development Version](https://raw.github.com/ksze/Backbone.Rpc/master/backbone.rpc.js)
 or the
-[Production Version](https://raw.github.com/asciidisco/Backbone.Rpc/master/backbone.rpc.min.js)
+[Production Version](https://raw.github.com/ksze/Backbone.Rpc/master/backbone.rpc.min.js)
 from the root folder
+
+__NOTE: DO NOT use the "Production Version" in this fork just yet. I have not figured out how to build it properly with grunt, etc.__
 
 ### AMD
 ```javascript
@@ -39,6 +41,9 @@ require(['path/to/backbone.rpc'], function (Backbone) {
 });
 ```
 ### NPM
+
+__NOTE: Ignore this section__
+
 ```shell
 $ npm install Backbone.Rpc
 ```
@@ -420,6 +425,7 @@ When working with a JSON RPC Service you can encounter different types of errors
 The default error handler simply throws if something bad happens.
 
 ##### We have a predefined list of errors:
+__NOTE: I disagree with the idea of mixing HTTP status code with JSON-RPC. JSON-RPC is supposed to be transport agnostic. The minute you mix in HTTP status code, you break the transport-agnostic principle. Seriously, don't do it. If you are programming the server-side, make sure you don't mix HTTP status code into JSON-RPC error responses.__
 
 + 404: {code: -1, message: '404'}
 + 500: {code: -2, message: '500'}
