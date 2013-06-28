@@ -337,8 +337,8 @@ IN THE SOFTWARE.*/
                         // generate the method for the signature
                         this[signature] = _.bind(function (options) {
                             // invoke the dynamicly created method
-                            this.rpc.invoke(signature, this, options);
-                            return this;
+                            return this.rpc.invoke(signature, this, options);
+                            //return this;
                         }, this);
                     }
                 }, this));
